@@ -74,7 +74,7 @@ async def chack_online():
                 member_list.append(user_data)
                 
         #MemberListをDataFrameにして保存
-        df_members = pd.DataFrame([member_list], columns={"User_Name", "Discord_ID", "State"}) #新規ユーザーデータを作成
+        df_members = pd.DataFrame(member_list, columns=["User_Name", "Discord_ID", "State"]) #新規ユーザーデータを作成
         df_members = df_members.astype({"Discord_ID":"int64"}) #データの型変換
         df_members.to_csv(os.environ["MEMBERLIST"], index=False) #保存
         
