@@ -148,8 +148,8 @@ async def match_host(ctx, user, kind):
         return await ctx.response.send_message(f"あなたは対戦中、もしくは対戦ホスト中です。", ephemeral=True)
         
     #対戦形式を読み込み
-    with open(os.environ["VS_DICT"], mode="r") as f:
-        vs_dict = json.load(f)
+    with open(os.environ["CONFIG"], mode="r") as f:
+        vs_dict = json.load(f)["VS_Format"]
     #対戦募集ボタンを表示
     await ctx.response.defer()
     view = ui.VSHostButton(user, kind, timeout=120) #2分で募集を削除

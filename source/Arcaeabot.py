@@ -1,19 +1,22 @@
 import os
+import pytz
 import dotenv
 import datetime
 import pandas as pd
 import discord
 from discord.ext import tasks
 from discord import app_commands
+import json
 import ui
 import Arcaea_command
+import MemberManage
 
 
 #.envファイルの読み込み
 dotenv.load_dotenv()
 #アクセストークンを取得
-TOKEN = os.environ["BOT_TOKEN"] #本番用
-#TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
+#TOKEN = os.environ["BOT_TOKEN"] #本番用
+TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
 #接続に必要なオブジェクトを生成
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)
@@ -23,7 +26,7 @@ tree = app_commands.CommandTree(client)
 async def on_ready():
     """初回起動設定"""
     #各種IDを取得
-    global Creater_DM, Creater_ID, Server_ID, MemberRole_ID, SubRole_ID, RandomSelect_CH, RandomBattle_CH, Create_RoomID
+    global Creater_DM, Creater_ID, Server_ID, MemberRole_ID, SubRole_ID, RandomSelect_CH, RandomBattle_CH, Create_RoomID, Config
     Creater_ID = int(os.environ["CREATER_ID"])
     Server_ID = int(os.environ["SERVER_ID"])
     MemberRole_ID = int(os.environ["MEMBERROLE_ID"])
@@ -34,6 +37,10 @@ async def on_ready():
     #管理者のDMオブジェクトを作成
     Creater = await client.fetch_user(Creater_ID)
     Creater_DM = await Creater.create_dm()
+    #設定ファイルを読み込み
+    with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
+        Config = json.load(f)
+    
 
     #コマンドの更新
     await tree.sync()
@@ -42,8 +49,13 @@ async def on_ready():
 
     #ログイン通知
     await Creater_DM.send("起動したよ")
+
+    #検証用
+    MemberManage.Member(client)
+
     #起動チェック処理実行
     await chack_online.start()
+
 
 #60秒ごとに実行
 @tasks.loop(seconds=60) 
@@ -51,36 +63,71 @@ async def chack_online():
     """毎日定刻に起動チェックを行う"""
     #現在時刻確認
     now = datetime.datetime.now()
-    oncheaktime =now.strftime('%H:%M') #時間と分だけに変換
+    now = now + datetime.timedelta(hours=9)
+    oncheaktime = now.strftime('%H:%M') #時間と分だけに変換
+    memberchecktime = now.strftime('%d %M') #日付と時間に変換
 
     #定刻に管理者DMに起動チェックを送信とメンバーリスト更新
     if oncheaktime == '09:00':
+        #メンバーリスト読み込み
+        memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+
         #メンバーリストの更新
         guild_info = client.get_guild(Server_ID) #サーバー情報を取得
         members_info = guild_info.get_role(MemberRole_ID).members #メンバー一覧を取得
         sub_info = guild_info.get_role(SubRole_ID).members #サブ一覧を取得
-        sub_ids = [i.id for i in sub_info] #サブのidリスト作成
-        
-        #一人ずつデータを作成
-        member_list = []
-        for member in members_info:
-            if member.id in sub_ids:
-                #サブ垢は飛ばす
+        main_info = [item for item in members_info if item not in sub_info] #メイン垢一覧を取得
+        main_ids = [i.id for i in main_info] #メイン垢のidリストを作成
+
+        droplist = []
+        #登録されているユーザーがサーバーにいるか確認
+        for idx, member in memberlist.iterrows():
+            if main_ids in member["Discord_ID"]:
                 pass
             else:
-                #ユーザーデータ作成
-                user_data = [member.display_name, member.id, False]
-                #データをリストに追加
-                member_list.append(user_data)
+                #居ない人のindexを保存
+                droplist.append(idx)
+
+        #ユーザーデータ削除
+        if len(droplist) != 0:
+            memberlist.drop(index=idx, inplace=True)
+
+        appendlist = []
+        #サーバーにいるユーザーが登録されているか確認
+        for member in main_info:
+            if memberlist["Discord_ID"].isin(member.id).any().any():
+                pass
+            else:
+                #ユーザーデータ作成して保存
+                appendlist.append([member.display_name, member.id, False, 0])
                 
-        #MemberListをDataFrameにして保存
-        df_members = pd.DataFrame(member_list, columns=["User_Name", "Discord_ID", "State"]) #新規ユーザーデータを作成
-        df_members = df_members.astype({"Discord_ID":"int64"}) #データの型変換
-        df_members.to_csv(os.environ["MEMBERLIST"], index=False) #保存
+        #ユーザーデータ追加
+        if len(appendlist) != 0:
+            newmembers = pd.DataFrame(appendlist, columns=["User_Name", "Discord_ID", "State", "MemberCheck"]) #新規ユーザーデータを作成
+            memberlist = pd.concat([memberlist, newmembers])
+
+        #MemberListを更新
+        memberlist.to_csv(os.environ["MEMBERLIST"], index=False) #保存
         
         #起動通知
         await Creater_DM.send("起動中...メンバーリスト更新完了。")
 
+    #月1回メンバーの在籍確認を行う
+    if memberchecktime == "20 00": #開始:20日0時
+        #メンバーチェック起動
+        await MemberManage.start(client, now)
+
+    elif memberchecktime == "20 18" or memberchecktime == "21 18" or memberchecktime == "22 18": #20,21,22日18時
+        #確認状況送信
+        await MemberManage.check(client, now)
+        if memberchecktime == "22 18": #最終日(22日18時)
+            #最終日はお知らせにもリマインドを送信
+            await MemberManage.remind(client, now)
+
+    elif memberchecktime == "23 00": #終了:23日0時
+        #終了メッセージ送信
+        await MemberManage.finish(client, now)
+    
 
 @client.event
 async def on_member_join(member):
@@ -120,17 +167,17 @@ async def sign_up(ctx):
         #対戦CHでのみ有効
         if ctx.channel_id == RandomBattle_CH or ctx.channel_id == Create_RoomID:
             #メンバーリストを取得
-            MemberList = pd.read_csv(os.environ["MEMBERLIST"])
+            memberlist = pd.read_csv(os.environ["MEMBERLIST"])
             #登録済みか確認
-            if MemberList["Discord_ID"].isin([ctx.user.id]).any().any():
+            if memberlist["Discord_ID"].isin([ctx.user.id]).any().any():
                 #登録済みなら通知して処理を終わる
                 return await ctx.response.send_message("既に登録されています。", ephemeral=True)
 
             #登録処理
-            signup_user = pd.DataFrame([[ctx.user.display_name, ctx.user.id, False]], columns=MemberList.columns) #新規ユーザーデータを作成
-            MemberList = pd.concat([MemberList, signup_user]) #既存データと結合
-            MemberList = MemberList.astype({"Discord_ID":"int64"}) #データの型変換
-            MemberList.to_csv(os.environ["MEMBERLIST"], index=False) #保存
+            signup_user = pd.DataFrame([[ctx.user.display_name, ctx.user.id, False]], columns=memberlist.columns) #新規ユーザーデータを作成
+            memberlist = pd.concat([memberlist, signup_user]) #既存データと結合
+            memberlist = memberlist.astype({"Discord_ID":"int64"}) #データの型変換
+            memberlist.to_csv(os.environ["MEMBERLIST"], index=False) #保存
 
             #登録完了を知らせる
             return await ctx.response.send_message("登録完了です!")
