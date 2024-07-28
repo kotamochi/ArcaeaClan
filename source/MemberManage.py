@@ -146,6 +146,7 @@ async def remind(client, now):
 
 
 async def finish(client, now):
+    """メンバー確認処理終了"""
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
         config = json.load(f)["Member_Check"]
