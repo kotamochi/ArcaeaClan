@@ -1,7 +1,9 @@
 import discord
 from discord import ui
 import Arcaea_command
+import MemberManage
 import asyncio
+from datetime import datetime, timedelta
 
 
 class VSButton(ui.View):
@@ -573,3 +575,78 @@ class VSScoreCheck(ui.View):
         else:
             #それ以外の時
             await button.response.send_message("スコア入力者じゃないよ", ephemeral=True)
+            
+
+class AdminButton(ui.View):
+    """管理者用のサーバー管理ボタン"""
+    def __init__(self, timeout=None):
+        #初期設定
+        super().__init__(timeout=timeout)
+        
+    @ui.button(label="在籍確認管理", style=discord.ButtonStyle.success)
+    async def m_manage(self, button: discord.ui.Button, interaction: discord.Interaction):
+        view = AdminMemberManage(timeout=300)
+        await button.response.edit_message(content="在籍確認の設定を行います。", view=view)
+        
+
+class AdminMemberManage(ui.View):
+    """在籍確認の設定ボタン"""
+    def __init__(self, timeout=None):
+        #初期設定
+        super().__init__(timeout=timeout)
+        
+    @ui.button(label="確認免除変更", style=discord.ButtonStyle.success)
+    async def s_change(self, button: discord.ui.Button, interaction: discord.Interaction):
+        view = AdminMemberSelect(timeout=300)
+        view.add_options()
+        await button.response.send_message("在籍確認免除の設定を行います。", view=view)
+        
+    @ui.button(label="免除者一覧", style=discord.ButtonStyle.success)
+    async def s_show(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """在籍確認の免除者を出力"""
+        message = MemberManage.show_anymember()
+        #送信
+        await button.response.send_message(message)
+        
+    @ui.button(label="在籍確認を終了する", style=discord.ButtonStyle.success)
+    async def c_finish(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """在籍確認を終了させる""" 
+        #メッセージを送信
+        await button.response.send_message("在籍確認を終了します。")
+        #現在時刻確認
+        now = datetime.now()
+        now = now + timedelta(hours=9)
+        #終了メッセージ送信
+        await MemberManage.finish(button.client, now)
+        
+    @ui.button(label="閉じる", style=discord.ButtonStyle.red)
+    async def close(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """管理メニューを閉じる"""
+        await button.response.edit_message(content="管理メニューを閉じました。", view=None)
+        
+        
+class AdminMemberSelect(ui.View):
+    def __init__(self, timeout=None):
+        #初期設定
+        super().__init__(timeout=timeout)
+    
+    @ui.select(cls=discord.ui.Select, placeholder="変更するユーザーを選択してください",options=[])
+    async def m_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        """メンバー選択セレクトリスト"""
+        #選択された値を取得
+        select_name = select.values[0]
+        #選択者のステータスを変更
+        await MemberManage.change_checkstate(interaction, select_name)
+        
+    @ui.button(label="終了", style=discord.ButtonStyle.success)
+    async def stop(self, button: discord.ui.Button, interaction: discord.Interaction):
+        """変更処理を終了"""
+        await button.response.edit_message(view=None)
+        await button.followup.send("在籍確認管理を終了しました。")
+        
+    def add_options(self):
+        #セレクトリストの項目を作成
+        namelist = MemberManage.get_membernames() #メンバーの名前を取得
+        for name in namelist:
+            #option = discord.SelectOption(label=f"{name}")
+            self.children[0].add_option(label=f"{name}")
