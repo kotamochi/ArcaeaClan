@@ -1,5 +1,4 @@
 import os
-import pytz
 import dotenv
 from datetime import datetime, timedelta
 import pandas as pd
