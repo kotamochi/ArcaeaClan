@@ -3,7 +3,7 @@ import json
 import re
 import asyncio
 import dotenv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 import discord
@@ -33,6 +33,8 @@ async def start(client, now):
 
     #メッセージ作成
     message = config["CheckText_1"] #在籍確認メッセージ
+    message = re.sub("{NOW_YEAR}", str(now.year), message)
+    message = re.sub("{NOW_MONTH}", str(now.month), message)
     message = text_edit_time(message, time_dict) #メッセージに時刻を入力
 
     #送信
@@ -40,7 +42,7 @@ async def start(client, now):
     await checkmessage.add_reaction("✋")
 
     #メッセージidを保存
-    save_json(checkmessage.id, "CheckMessage_ID")
+    save_json(checkmessage.id, "C_Msg_ID")
 
     #チェックリスト送信
     #確認状況ごとに分ける
@@ -54,7 +56,10 @@ async def start(client, now):
     message = re.sub("{ALL_Member}", str(len(memberlist)-1), message) #マスターを除く
 
     #送信
-    await annnounce_CH.send(message)
+    cl_message = await annnounce_CH.send(message)
+    
+    #メッセージidを保存
+    save_json(cl_message.id, "CL_Msg_ID")
 
 
 async def check(client, now):
@@ -65,7 +70,9 @@ async def check(client, now):
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
     #リアクションをつけているユーザーを取得
-    reactions = await client.channel.fetch_message(config["CheckMessage_ID"]).reactions
+    annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
+    message = await annnounce_CH.fetch_message(config["C_Msg_ID"])
+    reactions = message.reactions[0]
     users = [user async for user in reactions.users()]
 
     #リアクション済みのユーザーを記録
@@ -73,32 +80,35 @@ async def check(client, now):
         memberlist.loc[memberlist[memberlist["Discord_ID"] == user.id].index, "MemberCheck"] = 1
 
     #確認状況ごとに分ける
-    still_df = memberlist[memberlist["MemberCheck"] == 0]
-    ok_df = memberlist[memberlist["MemberCheck"] == 1]
-    any_df = memberlist[memberlist["MemberCheck"] == 2]
+    still_df = memberlist[memberlist["MemberCheck"] == 0].reset_index()
+    ok_df = memberlist[memberlist["MemberCheck"] == 1].reset_index()
+    any_df = memberlist[memberlist["MemberCheck"] == 2].reset_index()
 
     #メッセージを作成
-    ok_message = f"確認済み：{len(ok_df)}/{len(memberlist)-1}\n" #マスターを除く
+    ok_message = f"✅確認済み：{len(ok_df)}/{len(memberlist)-1}\n" #マスターを除く
     for idx, ok_user in ok_df.iterrows():
-        ok_message += f"{idx+1}.{ok_user["User_Name"]}\n"
+        ok_message += f"{idx+1}.{ok_user['User_Name']}\n"
 
-    still_message = f"未確認：{len(still_df)}/{len(memberlist)-1}\n" #マスターを除く
+    still_message = f"\n🟥未確認：{len(still_df)}/{len(memberlist)-1}\n" #マスターを除く
     for idx, still_user in still_df.iterrows():
-        still_message += f"{idx+1}.{still_user["User_Name"]}\n"
+        still_message += f"{idx+1}.{still_user['User_Name']}\n"
 
-    any_message = f"任意確認：{len(any_df)}/{len(memberlist)-1}\n" #マスターを除く
+    any_message = f"\n🟨任意確認：{len(any_df)}/{len(memberlist)-1}\n" #マスターを除く
     for idx, any_user in any_df.iterrows():
-        any_message += f"{idx+1}.{any_user["User_Name"]}\n"
+        any_message += f"{idx+1}.{any_user['User_Name']}\n"
 
     message = f"{now.month}月{now.day}日 在籍確認進捗\n"
     message += ok_message + still_message + any_message
 
     #マスターのDMオブジェクトを作成
-    master = await client.fetch_user(int(os.environ["MASTER_ID"]))
+    master = await client.fetch_user(int(os.environ["CREATER_ID"]))
     master_DM = await master.create_dm()
 
     #送信
     await master_DM.send(message)
+    
+    #保存
+    memberlist.to_csv(os.environ["MEMBERLIST"], index=False)
 
 
 async def remind(client, now):
@@ -109,7 +119,9 @@ async def remind(client, now):
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
     #リアクションをつけているユーザーを取得
-    reactions = await client.channel.fetch_message(config["CheckMessage_ID"]).reactions
+    annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
+    message = await annnounce_CH.fetch_message(config["C_Msg_ID"])
+    reactions = message.reactions[0]
     users = [user async for user in reactions.users()]
 
     #リアクション済みのユーザーを記録
@@ -122,7 +134,7 @@ async def remind(client, now):
     num_any = len(memberlist[memberlist["MemberCheck"] == 2])
 
     #メッセージ作成
-    message = config["CheckText_1"] #在籍確認メッセージ
+    message = config["RemindText"] #リマインドメッセージ
     weekdays = ["月", "火", "水", "木", "金", "土", "日"]
     time_dict = {
         "year":str(now.year),
@@ -142,7 +154,10 @@ async def remind(client, now):
     annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
 
     #リマインド送信
-    await annnounce_CH.send(message)
+    remaindmessage = await annnounce_CH.send(message)
+    
+    #メッセージidを保存
+    save_json(remaindmessage.id, "CR_Msg_ID")
 
 
 async def finish(client, now):
@@ -153,7 +168,7 @@ async def finish(client, now):
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
 
-    if len(memberlist[memberlist["MemberCheck"] == 0]):
+    if len(memberlist[memberlist["MemberCheck"] == 0]) == 0:
         #全員確認済みの場合終了する
         weekdays = ["月", "火", "水", "木", "金", "土", "日"]
         time_dict = {
@@ -167,21 +182,36 @@ async def finish(client, now):
         message = text_edit_time(message, time_dict) #メッセージに時刻を入力
         #次回情報を入力
         next = now + relativedelta(months=1)
+        next = date(int(next.year), int(next.month), 20)
         message = re.sub("{NEXT_MONTH}", str(next.month), message)
-        message = re.sub("{(NEXT_DAY)}", f"({str(weekdays[next.weekday()])})", message)
+        message = re.sub("{NEXT_WEEKDAY}", weekdays[next.weekday()], message)
 
         #チャンネル取得
         annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
 
+        #在籍確認メッセージを削除
+        annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
+        cm_names = ["C_Msg_ID", "CL_Msg_ID", "CR_Msg_ID"] #削除メッセージのID名リスト
+        for name in cm_names:
+            del_message = await annnounce_CH.fetch_message(config[name])
+            await del_message.delete() #削除する
+
         #在籍確認終了送信
         await annnounce_CH.send(message)
 
-        #在籍確認を初期化
-        reset()
+        #在籍確認ステータスを初期化
+        await reset()
+        
+        #マスターのDMに終了報告を送信
+        master = await client.fetch_user(int(os.environ["CREATER_ID"]))
+        master_DM = await master.create_dm()
+
+        #送信
+        await master_DM.send("在籍確認が正常に終了しました。お疲れ様でした。")
     else:
         #終わってない場合はマスターにDMを送信
         #マスターのDMオブジェクトを作成
-        master = await client.fetch_user(int(os.environ["MASTER_ID"]))
+        master = await client.fetch_user(int(os.environ["CREATER_ID"]))
         master_DM = await master.create_dm()
 
         #送信
@@ -204,7 +234,7 @@ def text_edit_time(text, time_dict):
     text = re.sub("{YEAR}", time_dict["year"], text)
     text = re.sub("{MONTH}", time_dict["month"], text)
     text = re.sub("{DAY}", time_dict["day"], text)
-    text = re.sub("{(DAY)}", f"({time_dict["weekday"]})", text)
+    text = re.sub("{WEEKDAY}", time_dict['weekday'], text)
     return text
 
 
@@ -219,4 +249,47 @@ def save_json(data, name):
 
     #更新
     with open(os.environ["CONFIG"], mode="w", encoding="utf-8") as f:
-        file = json.dump(file, f, indent=4)
+        file = json.dump(file, f, indent=4, ensure_ascii=False)
+        
+        
+def get_membernames():
+    #メンバーリスト取得
+    memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+    #ユーザーのディスプレイ名リストを返す
+    return [user["User_Name"] for _, user in memberlist.iterrows()]
+
+
+async def change_checkstate(ctx, user_name):
+    """確認ステータスの変更を行う"""
+    #メンバーリスト取得
+    memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+    #現在のステータスを取得
+    c_state = int(memberlist[memberlist["User_Name"] == user_name]["MemberCheck"].values)
+    #変更するステータス値に更新
+    if c_state == 0:
+        memberlist.loc[memberlist[memberlist["User_Name"] == user_name].index, "MemberCheck"] = 2
+        await ctx.response.send_message(f"{user_name}の在籍確認ステータスを「任意」に変更しました。")
+    elif c_state == 2:
+        memberlist.loc[memberlist[memberlist["User_Name"] == user_name].index, "MemberCheck"] = 0
+        await ctx.response.send_message(f"{user_name}の在籍確認ステータスを「必須」に変更しました。")
+    else:
+        return await ctx.response.send_message(f"{user_name}は既に確認済みか変更できないユーザーです。")
+    
+    #保存
+    memberlist.to_csv(os.environ["MEMBERLIST"], index=False)
+    
+    
+def show_anymember():
+    """免除者の一覧メッセージ作成"""
+    #メンバーリスト取得
+    memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+    any_df = memberlist[memberlist["MemberCheck"] == 2]
+    #一覧メッセージ作成
+    message = "現在の確認免除者一覧"
+    if len(any_df) != 0:
+        for _, user in any_df.iterrows():
+            message += f"\n・{user['User_Name']}"
+    else:
+        message += "\n・なし"
+        
+    return message

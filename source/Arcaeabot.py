@@ -1,7 +1,6 @@
 import os
-import pytz
 import dotenv
-import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 import discord
 from discord.ext import tasks
@@ -15,8 +14,8 @@ import MemberManage
 #.envファイルの読み込み
 dotenv.load_dotenv()
 #アクセストークンを取得
-#TOKEN = os.environ["BOT_TOKEN"] #本番用
-TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
+TOKEN = os.environ["BOT_TOKEN"] #本番用
+#TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
 #接続に必要なオブジェクトを生成
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)
@@ -48,10 +47,7 @@ async def on_ready():
     #print(viwe)
 
     #ログイン通知
-    await Creater_DM.send("起動したよ")
-
-    #検証用
-    MemberManage.Member(client)
+    await Creater_DM.send("起動したよ") 
 
     #起動チェック処理実行
     await chack_online.start()
@@ -62,8 +58,8 @@ async def on_ready():
 async def chack_online():
     """毎日定刻に起動チェックを行う"""
     #現在時刻確認
-    now = datetime.datetime.now()
-    now = now + datetime.timedelta(hours=9)
+    now = datetime.now()
+    now = now + timedelta(hours=9)
     oncheaktime = now.strftime('%H:%M') #時間と分だけに変換
     memberchecktime = now.strftime('%d %M') #日付と時間に変換
 
@@ -283,6 +279,22 @@ async def log_view(ctx):
     except Exception:
         return await ctx.response.send_message("コマンド処理中にエラーが発生しました。もう一度試してみて!", ephemeral=True)
 
+
+@tree.command(name="admin", description="サーバー管理メニューを表示(管理者のみ)", )
+async def adminmanage(ctx):
+    """管理メニューの表示"""
+    #マスターの情報を取得
+    master = await client.fetch_user(int(os.environ["MASTER_ID"]))
+    master_DM = await master.create_dm()
+    #マスターのDMのみ有効
+    if ctx.channel_id == master_DM.id:#or ctx.channel_id == Creater_DM.id:
+        #管理メニューを表示
+        view = ui.AdminButton(timeout=300)
+        await ctx.response.send_message("サーバー管理者用メニュー", view=view)
+    else:
+        #利用場所エラー
+        return await noaction_messeage(ctx)
+    
 
 @tree.command(name="master_log", description="対戦記録ファイルを出力。(管理者のみ)", )
 async def master_log_view(ctx):
