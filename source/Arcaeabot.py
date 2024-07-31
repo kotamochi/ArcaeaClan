@@ -82,7 +82,7 @@ async def chack_online():
         droplist = []
         #登録されているユーザーがサーバーにいるか確認
         for idx, member in memberlist.iterrows():
-            if main_ids in member["Discord_ID"]:
+            if member["Discord_ID"] in main_ids:
                 pass
             else:
                 #居ない人のindexを保存
