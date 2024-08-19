@@ -65,46 +65,7 @@ async def chack_online():
 
     #定刻に管理者DMに起動チェックを送信とメンバーリスト更新
     if oncheaktime == '09:00':
-        #メンバーリスト読み込み
-        memberlist = pd.read_csv(os.environ["MEMBERLIST"])
-
-        #メンバーリストの更新
-        guild_info = client.get_guild(Server_ID) #サーバー情報を取得
-        members_info = guild_info.get_role(MemberRole_ID).members #メンバー一覧を取得
-        sub_info = guild_info.get_role(SubRole_ID).members #サブ一覧を取得
-        main_info = [item for item in members_info if item not in sub_info] #メイン垢一覧を取得
-        main_ids = [i.id for i in main_info] #メイン垢のidリストを作成
-
-        droplist = []
-        #登録されているユーザーがサーバーにいるか確認
-        for idx, member in memberlist.iterrows():
-            if member["Discord_ID"] in main_ids:
-                pass
-            else:
-                #居ない人のindexを保存
-                droplist.append(idx)
-
-        #ユーザーデータ削除
-        if len(droplist) != 0:
-            memberlist.drop(index=idx, inplace=True)
-
-        appendlist = []
-        #サーバーにいるユーザーが登録されているか確認
-        for member in main_info:
-            if memberlist["Discord_ID"].isin(member.id).any().any():
-                pass
-            else:
-                #ユーザーデータ作成して保存
-                appendlist.append([member.display_name, member.id, False, 0])
-                
-        #ユーザーデータ追加
-        if len(appendlist) != 0:
-            newmembers = pd.DataFrame(appendlist, columns=["User_Name", "Discord_ID", "State", "MemberCheck"]) #新規ユーザーデータを作成
-            memberlist = pd.concat([memberlist, newmembers])
-
-        #MemberListを更新
-        memberlist.to_csv(os.environ["MEMBERLIST"], index=False) #保存
-        
+        await MemberManage.check_member(client, Server_ID, MemberRole_ID, SubRole_ID, Creater_DM)
         #起動通知
         await Creater_DM.send("起動中...メンバーリスト更新完了。")
 
@@ -287,7 +248,7 @@ async def adminmanage(ctx):
     master = await client.fetch_user(int(os.environ["MASTER_ID"]))
     master_DM = await master.create_dm()
     #マスターのDMのみ有効
-    if ctx.channel_id == master_DM.id:#or ctx.channel_id == Creater_DM.id:
+    if ctx.channel_id == master_DM.id or ctx.channel_id == Creater_DM.id:
         #管理メニューを表示
         view = ui.AdminButton(timeout=300)
         await ctx.response.send_message("サーバー管理者用メニュー", view=view)

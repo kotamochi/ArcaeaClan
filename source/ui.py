@@ -587,7 +587,13 @@ class AdminButton(ui.View):
     async def m_manage(self, button: discord.ui.Button, interaction: discord.Interaction):
         view = AdminMemberManage(timeout=300)
         await button.response.edit_message(content="在籍確認の設定を行います。", view=view)
-        
+
+    
+    @ui.button(label="メンバーリスト更新", style=discord.ButtonStyle.success)
+    async def update_member(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await MemberManage.check_member(button.client)
+        await button.response.edit_message(content="メンバーリスト更新完了", view=None)   
+
 
 class AdminMemberManage(ui.View):
     """在籍確認の設定ボタン"""
@@ -599,7 +605,7 @@ class AdminMemberManage(ui.View):
     async def s_change(self, button: discord.ui.Button, interaction: discord.Interaction):
         view = AdminMemberSelect(timeout=300)
         view.add_options()
-        await button.response.send_message("在籍確認免除の設定を行います。", view=view)
+        await button.response.edit_message("在籍確認免除の設定を行います。", view=view)
         
     @ui.button(label="免除者一覧", style=discord.ButtonStyle.success)
     async def s_show(self, button: discord.ui.Button, interaction: discord.Interaction):
