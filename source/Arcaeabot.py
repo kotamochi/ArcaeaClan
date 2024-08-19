@@ -14,8 +14,8 @@ import MemberManage
 #.envファイルの読み込み
 dotenv.load_dotenv()
 #アクセストークンを取得
-TOKEN = os.environ["BOT_TOKEN"] #本番用
-#TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
+#TOKEN = os.environ["BOT_TOKEN"] #本番用
+TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
 #接続に必要なオブジェクトを生成
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)

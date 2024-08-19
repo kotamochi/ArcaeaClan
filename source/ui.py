@@ -604,8 +604,8 @@ class AdminMemberManage(ui.View):
     @ui.button(label="確認免除変更", style=discord.ButtonStyle.success)
     async def s_change(self, button: discord.ui.Button, interaction: discord.Interaction):
         view = AdminMemberSelect(timeout=300)
-        view.add_options()
-        await button.response.edit_message("在籍確認免除の設定を行います。", view=view)
+        await view.add_options()
+        await button.response.edit_message(content="在籍確認免除の設定を行います。", view=view)
         
     @ui.button(label="免除者一覧", style=discord.ButtonStyle.success)
     async def s_show(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -650,9 +650,12 @@ class AdminMemberSelect(ui.View):
         await button.response.edit_message(view=None)
         await button.followup.send("在籍確認管理を終了しました。")
         
-    def add_options(self):
+    async def add_options(self):
+        #セレクトリストをクリア
+        self.children[0].options = []
         #セレクトリストの項目を作成
         namelist = MemberManage.get_membernames() #メンバーの名前を取得
         for name in namelist:
+            print(name)
             #option = discord.SelectOption(label=f"{name}")
             self.children[0].add_option(label=f"{name}")

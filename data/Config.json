@@ -10,8 +10,8 @@
         "CheckText_2": "[Check List]\n🟦確認対象人数(確認が必須) 🟦:{Check_No}\n🟩連絡受諾済み(確認は任意) 🟩:{Check_Any}\n\n合計:{ALL_Member} (マスター除く)",
         "RemindText": "[リマインダー]\n本日中で{MONTH}月の在籍確認は締め切りです。\n連絡受諾済みのメンバーを除き、全員確認の対象となります。\n必ず確認してください。\n\n[UpDated: {MONTH}-{DAY} 18:00]\n✅確認済み:{Check_Ok}\n🟥未確認(確認必須):{Check_No}\n🟨未確認(確認任意):{Check_Any}\n合計:{ALL_Member} (マスター除く)",
         "CheckFinishText": "✅[{YEAR}-{MONTH} 在籍確認]✅\n全員の確認を完了しました。\n\n次回の在籍確認は{NEXT_MONTH}/20({NEXT_WEEKDAY})です。",
-        "C_Msg_ID": 1275061955941367820,
-        "CL_Msg_ID": 1275061965034754109,
+        "C_Msg_ID": 1275092116011487282,
+        "CL_Msg_ID": 1275092120872550511,
         "CR_Msg_ID": 1267644382383833132
     }
 }
