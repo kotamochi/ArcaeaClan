@@ -14,8 +14,8 @@ import MemberManage
 #.envファイルの読み込み
 dotenv.load_dotenv()
 #アクセストークンを取得
-#TOKEN = os.environ["BOT_TOKEN"] #本番用
-TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
+TOKEN = os.environ["BOT_TOKEN"] #本番用
+#TOKEN = os.environ["DEBUG_BOT_TOKEN"] #デバック用
 #接続に必要なオブジェクトを生成
 client = discord.Client(intents=discord.Intents.all())
 tree = app_commands.CommandTree(client)
@@ -61,27 +61,27 @@ async def chack_online():
     now = datetime.now()
     now = now + timedelta(hours=9)
     oncheaktime = now.strftime('%H:%M') #時間と分だけに変換
-    memberchecktime = now.strftime('%d %M') #日付と時間に変換
+    memberchecktime = now.strftime('%d %H:%M') #日付と時間に変換
 
     #定刻に管理者DMに起動チェックを送信とメンバーリスト更新
     if oncheaktime == '09:00':
-        await MemberManage.check_member(client, Server_ID, MemberRole_ID, SubRole_ID, Creater_DM)
+        await MemberManage.check_member(client)
         #起動通知
         await Creater_DM.send("起動中...メンバーリスト更新完了。")
 
     #月1回メンバーの在籍確認を行う
-    if memberchecktime == "20 00": #開始:20日0時
+    if memberchecktime == "21 00:00": #開始:20日0時
         #メンバーチェック起動
         await MemberManage.start(client, now)
 
-    elif memberchecktime == "20 18" or memberchecktime == "21 18" or memberchecktime == "22 18": #20,21,22日18時
+    elif memberchecktime == "22 18:00" or memberchecktime == "23 18:00" or memberchecktime == "24 18:00": #20,21,22日18時
         #確認状況送信
         await MemberManage.check(client, now)
-        if memberchecktime == "22 18": #最終日(22日18時)
+        if memberchecktime == "24 18:00": #最終日(22日18時)
             #最終日はお知らせにもリマインドを送信
             await MemberManage.remind(client, now)
 
-    elif memberchecktime == "23 00": #終了:23日0時
+    elif memberchecktime == "25 00:00": #終了:23日0時
         #終了メッセージ送信
         await MemberManage.finish(client, now)
     
