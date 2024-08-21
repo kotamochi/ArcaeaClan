@@ -1,5 +1,6 @@
 import os
 import dotenv
+import asyncio
 from datetime import datetime, timedelta
 import pandas as pd
 import discord
@@ -74,14 +75,14 @@ async def chack_online():
         #メンバーチェック起動
         await MemberManage.start(client, now)
 
-    elif memberchecktime == "22 18:00" or memberchecktime == "23 18:00" or memberchecktime == "24 18:00": #20,21,22日18時
+    elif memberchecktime == "21 18:00" or memberchecktime == "22 18:00" or memberchecktime == "23 18:00": #20,21,22日18時
         #確認状況送信
         await MemberManage.check(client, now)
-        if memberchecktime == "24 18:00": #最終日(22日18時)
+        if memberchecktime == "23 18:00": #最終日(22日18時)
             #最終日はお知らせにもリマインドを送信
             await MemberManage.remind(client, now)
 
-    elif memberchecktime == "25 00:00": #終了:23日0時
+    elif memberchecktime == "24 00:00": #終了:23日0時
         #終了メッセージ送信
         await MemberManage.finish(client, now)
     

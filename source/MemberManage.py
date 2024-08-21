@@ -89,6 +89,9 @@ async def start(client, now):
     checkmessage = await annnounce_CH.send(message)
     await checkmessage.add_reaction("✋")
 
+    #インターバル
+    asyncio.sleep(3)
+
     #メッセージidを保存
     save_json(checkmessage.id, "C_Msg_ID")
 
@@ -105,6 +108,9 @@ async def start(client, now):
 
     #送信
     cl_message = await annnounce_CH.send(message)
+
+    #インターバル
+    asyncio.sleep(3)
     
     #メッセージidを保存
     save_json(cl_message.id, "CL_Msg_ID")
@@ -149,7 +155,7 @@ async def check(client, now):
     message += ok_message + still_message + any_message
 
     #マスターのDMオブジェクトを作成
-    master = await client.fetch_user(int(os.environ["CREATER_ID"]))
+    master = await client.fetch_user(int(os.environ["MASTER_ID"]))
     master_DM = await master.create_dm()
 
     #送信
@@ -241,8 +247,11 @@ async def finish(client, now):
         annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
         cm_names = ["C_Msg_ID", "CL_Msg_ID", "CR_Msg_ID"] #削除メッセージのID名リスト
         for name in cm_names:
-            del_message = await annnounce_CH.fetch_message(config[name])
-            await del_message.delete() #削除する
+            try:
+                del_message = await annnounce_CH.fetch_message(config[name])
+                await del_message.delete() #削除する
+            except Exception: #メッセージがない場合は飛ばす
+                pass
 
         #在籍確認終了送信
         await annnounce_CH.send(message)
@@ -251,7 +260,7 @@ async def finish(client, now):
         await reset()
         
         #マスターのDMに終了報告を送信
-        master = await client.fetch_user(int(os.environ["CREATER_ID"]))
+        master = await client.fetch_user(int(os.environ["MASTER_ID"]))
         master_DM = await master.create_dm()
 
         #送信
@@ -259,7 +268,7 @@ async def finish(client, now):
     else:
         #終わってない場合はマスターにDMを送信
         #マスターのDMオブジェクトを作成
-        master = await client.fetch_user(int(os.environ["CREATER_ID"]))
+        master = await client.fetch_user(int(os.environ["MASTER_ID"]))
         master_DM = await master.create_dm()
 
         #送信
