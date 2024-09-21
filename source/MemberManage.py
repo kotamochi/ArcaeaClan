@@ -64,8 +64,10 @@ async def start(client, now):
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
         config = json.load(f)["Member_Check"]
+
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+
     #終了時間を取得
     finish_time = now + timedelta(days=config["CheckPeriod"])
     weekdays = ["月", "火", "水", "木", "金", "土", "日"]
@@ -76,6 +78,7 @@ async def start(client, now):
         "hour":str(finish_time.hour),
         "weekday":str(weekdays[finish_time.weekday()])
     }
+
     #チャンネル取得
     annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
 
@@ -85,15 +88,14 @@ async def start(client, now):
     message = re.sub("{NOW_MONTH}", str(now.month), message)
     message = text_edit_time(message, time_dict) #メッセージに時刻を入力
 
-    #送信
-    checkmessage = await annnounce_CH.send(message)
-    await checkmessage.add_reaction("✋")
+    #メッセージが既に送信されているか
+    if config["C_Msg_ID"] == "":
+        #送信
+        checkmessage = await annnounce_CH.send(message)
+        await checkmessage.add_reaction("✋")
 
-    #インターバル
-    asyncio.sleep(3)
-
-    #メッセージidを保存
-    save_json(checkmessage.id, "C_Msg_ID")
+        #メッセージidを保存
+        save_json(checkmessage.id, "C_Msg_ID")
 
     #チェックリスト送信
     #確認状況ごとに分ける
@@ -106,14 +108,13 @@ async def start(client, now):
     message = re.sub("{Check_Any}", str(num_any), message)
     message = re.sub("{ALL_Member}", str(len(memberlist)-1), message) #マスターを除く
 
-    #送信
-    cl_message = await annnounce_CH.send(message)
-
-    #インターバル
-    asyncio.sleep(3)
+    #メッセージが既に送信されているか
+    if config["CL_Msg_ID"] == "":
+        #送信
+        cl_message = await annnounce_CH.send(message)
     
-    #メッセージidを保存
-    save_json(cl_message.id, "CL_Msg_ID")
+        #メッセージidを保存
+        save_json(cl_message.id, "CL_Msg_ID")
 
 
 async def check(client, now):
@@ -121,8 +122,10 @@ async def check(client, now):
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
         config = json.load(f)["Member_Check"]
+
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+
     #リアクションをつけているユーザーを取得
     annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
     message = await annnounce_CH.fetch_message(config["C_Msg_ID"])
@@ -170,8 +173,10 @@ async def remind(client, now):
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
         config = json.load(f)["Member_Check"]
+
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
+
     #リアクションをつけているユーザーを取得
     annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
     message = await annnounce_CH.fetch_message(config["C_Msg_ID"])
@@ -207,22 +212,24 @@ async def remind(client, now):
     #チャンネル取得
     annnounce_CH = await client.fetch_channel(int(os.environ["ANNOUNCE_CH"]))
 
-    #リマインド送信
-    remaindmessage = await annnounce_CH.send(message)
+    #メッセージが既に送信されているか
+    if config["CR_Msg_ID"] == "":
+        #リマインド送信
+        remaindmessage = await annnounce_CH.send(message)
     
-    #メッセージidを保存
-    save_json(remaindmessage.id, "CR_Msg_ID")
+        #メッセージidを保存
+        save_json(remaindmessage.id, "CR_Msg_ID")
 
 
-async def finish(client, now):
+async def finish(client, now, is_mastercheck=False):
     """メンバー確認処理終了"""
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
-        config = json.load(f)["Member_Check"]
+        config = json.load(f)
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
 
-    if len(memberlist[memberlist["MemberCheck"] == 0]) == 0:
+    if len(memberlist[memberlist["MemberCheck"] == 0]) == 0 or is_mastercheck == True:
         #全員確認済みの場合終了する
         weekdays = ["月", "火", "水", "木", "金", "土", "日"]
         time_dict = {
@@ -232,7 +239,7 @@ async def finish(client, now):
             "hour":str(now.hour),
             "weekday":str(weekdays[now.weekday()])
         }
-        message = config["CheckFinishText"] #在籍確認終了メッセージ
+        message = config["Member_Check"]["CheckFinishText"] #在籍確認終了メッセージ
         message = text_edit_time(message, time_dict) #メッセージに時刻を入力
         #次回情報を入力
         next = now + relativedelta(months=1)
@@ -248,10 +255,15 @@ async def finish(client, now):
         cm_names = ["C_Msg_ID", "CL_Msg_ID", "CR_Msg_ID"] #削除メッセージのID名リスト
         for name in cm_names:
             try:
-                del_message = await annnounce_CH.fetch_message(config[name])
+                del_message = await annnounce_CH.fetch_message(config["Member_Check"][name])
                 await del_message.delete() #削除する
+                config["Member_Check"][name] = "" #メッセージIDを初期化
             except Exception: #メッセージがない場合は飛ばす
                 pass
+
+        #更新
+        with open(os.environ["CONFIG"], mode="w", encoding="utf-8") as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
 
         #在籍確認終了送信
         await annnounce_CH.send(message)
@@ -306,7 +318,7 @@ def save_json(data, name):
 
     #更新
     with open(os.environ["CONFIG"], mode="w", encoding="utf-8") as f:
-        file = json.dump(file, f, indent=4, ensure_ascii=False)
+        json.dump(file, f, indent=4, ensure_ascii=False)
         
         
 def get_membernames():

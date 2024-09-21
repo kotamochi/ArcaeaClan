@@ -622,8 +622,9 @@ class AdminMemberManage(ui.View):
         #現在時刻確認
         now = datetime.now()
         now = now + timedelta(hours=9)
+        
         #終了メッセージ送信
-        await MemberManage.finish(button.client, now)
+        await MemberManage.finish(button.client, now, is_mastercheck=True)
         
     @ui.button(label="閉じる", style=discord.ButtonStyle.red)
     async def close(self, button: discord.ui.Button, interaction: discord.Interaction):
