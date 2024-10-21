@@ -68,6 +68,9 @@ async def start(client, now):
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
 
+    #チェック月を記録
+    save_json(f"{now.year}/{now.month}", "CheckMonth")
+
     #終了時間を取得
     finish_time = now + timedelta(days=config["CheckPeriod"])
     weekdays = ["月", "火", "水", "木", "金", "土", "日"]
@@ -96,6 +99,8 @@ async def start(client, now):
 
         #メッセージidを保存
         save_json(checkmessage.id, "C_Msg_ID")
+    else:
+        print("メッセージが重複して送信されようとしています。")
 
     #チェックリスト送信
     #確認状況ごとに分ける
@@ -115,6 +120,8 @@ async def start(client, now):
     
         #メッセージidを保存
         save_json(cl_message.id, "CL_Msg_ID")
+    else:
+        print("メッセージが重複して送信されようとしています。")
 
 
 async def check(client, now):
@@ -219,13 +226,15 @@ async def remind(client, now):
     
         #メッセージidを保存
         save_json(remaindmessage.id, "CR_Msg_ID")
+    else:
+        print("メッセージが重複して送信されようとしています。")
 
 
 async def finish(client, now, is_mastercheck=False):
     """メンバー確認処理終了"""
     #設定ファイル読み込み
     with open(os.environ["CONFIG"], mode="r", encoding="utf-8") as f:
-        config = json.load(f)
+        config = json.load(f)["Member_Check"]
     #メンバーリスト取得
     memberlist = pd.read_csv(os.environ["MEMBERLIST"])
 
@@ -239,10 +248,17 @@ async def finish(client, now, is_mastercheck=False):
             "hour":str(now.hour),
             "weekday":str(weekdays[now.weekday()])
         }
-        message = config["Member_Check"]["CheckFinishText"] #在籍確認終了メッセージ
+        message = config["CheckFinishText"] #在籍確認終了メッセージ
         message = text_edit_time(message, time_dict) #メッセージに時刻を入力
+
+        #月を跨いで終了処理を実行した場合
+        checkmonth =  config["CheckMonth"].split("/")
+        if str(now.year) == checkmonth[0] and str(now.month) == checkmonth[1]:
+            next = now + relativedelta(months=1)
+        else:
+            next = now
+
         #次回情報を入力
-        next = now + relativedelta(months=1)
         next = date(int(next.year), int(next.month), 20)
         message = re.sub("{NEXT_MONTH}", str(next.month), message)
         message = re.sub("{NEXT_WEEKDAY}", weekdays[next.weekday()], message)
@@ -255,15 +271,11 @@ async def finish(client, now, is_mastercheck=False):
         cm_names = ["C_Msg_ID", "CL_Msg_ID", "CR_Msg_ID"] #削除メッセージのID名リスト
         for name in cm_names:
             try:
-                del_message = await annnounce_CH.fetch_message(config["Member_Check"][name])
+                del_message = await annnounce_CH.fetch_message(config[name])
                 await del_message.delete() #削除する
-                config["Member_Check"][name] = "" #メッセージIDを初期化
+                save_json("", name) #メッセージIDを初期化
             except Exception: #メッセージがない場合は飛ばす
                 pass
-
-        #更新
-        with open(os.environ["CONFIG"], mode="w", encoding="utf-8") as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
 
         #在籍確認終了送信
         await annnounce_CH.send(message)
